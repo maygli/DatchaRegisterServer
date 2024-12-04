@@ -3,10 +3,9 @@ package datamodel
 import "time"
 
 type Command struct {
-	ID        uint `gorm:"primarykey"`
+	ID        uint
 	CreatedAt time.Time
-	Key       string `gorm:"type:varchar(100);uniqueIndex:command_key_idx"`
+	Key       string
 	Value     string
 	DeviceID  uint
-	Device    *Device
 }

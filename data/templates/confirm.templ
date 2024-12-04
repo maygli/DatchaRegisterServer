@@ -1,0 +1,56 @@
+Subject: Confirm CrazyDatcha account
+MIME-version: 1.0
+Content-Type: text/html
+charset: UTF-8
+
+
+<html>
+<head>
+<style type="text/css">
+  .panel {
+    box-shadow: 0 4px 8 px 0 rgba(0, 0, 0, 0.2);
+    width: 80%;
+    background: white;
+    margin: auto;
+    padding: 20px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .container {
+    width: 100%;
+    background: #e0e0e0;
+    height: 100%;
+  }
+
+  h2 {
+    font-size: 150%;
+  }
+
+  .button {
+    background: #1a82e2;
+    border-radius: 6px;
+    border: none;
+    color: white;
+    padding: 5px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h2>Confirm your email address</h2>
+      <hr>
+      </hr>
+      <p>Dear {{.Name}}.</p>
+      <p>Thank you for signing up to {{.Product}}.</p>
+      <p>Please click button below to confirm email address.</p>
+      <p>If you didn't create an account, you can safely delete this email.</p>
+      <button class="button"><a href="{{.Link}}" style="text-decoration: none;
+            color: white;">Confirm email</a></button>
+    </div>
+  </div>
+</body>
+</html>

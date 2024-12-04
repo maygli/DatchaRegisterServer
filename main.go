@@ -2,88 +2,97 @@ package main
 
 import (
 	"crypto/tls"
-	"datcha/authentification"
-	"datcha/channelserver"
-	"datcha/commandserver"
-	"datcha/deviceserver"
-	"datcha/notifyserver"
-	"datcha/pageserver"
-	"datcha/projectserver"
-	"datcha/repository"
+	"datcha/repository/repositories"
 	"datcha/servercommon"
-	"io"
-	"log"
+	"datcha/serverlogger"
+	"datcha/services/authservice"
+	"datcha/services/channelservice"
+	"datcha/services/commandservice"
+	"datcha/services/deviceservice"
+	"datcha/services/frontend"
+	"datcha/services/notifyservice"
+	"datcha/services/projectservice"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
 	"golang.org/x/crypto/acme/autocert"
-
-	_ "github.com/lib/pq"
 )
 
 const (
-	DATCHA_SERVER_CFG_FILE_NAME = "datcha.json"
-	SERVER_HTTPS_MODE           = "https"
+	SERVER_CFG_FILE_NAME = "data/config/server.json"
+	SERVER_HTTPS_MODE    = "https"
+	SERVER_NAME_KEY      = "SERVER_NAME"
+	SERVER_NAME          = "TRAVEL"
 )
 
-type DatchaServerConfiguration struct {
-	ServerMode  string `json:"mode" env:"DATCHA_SERVER_MODE, overwrite, default=http"`
-	LogFileName string `json:"log_file_name" env:"DATCHA_LOG_FILENAME, overwrite, default=datcha.log"`
+type TravelServerConfiguration struct {
+	ServerMode      string `json:"mode" env:"${SERVER_NAME}_SERVER_MODE" default:"http"`
+	UsersDataFolder string `json:"users_data_folder" env:"${SERVER_NAME}_USERS_DATA_FOLDER" default:"data/users_data"`
+	Port            int    `json:"port" env:"${SERVER_NAME}_CONFIG_PORT" default:"7080"`
 }
 
-func NewDatchaServerConfiguration() *DatchaServerConfiguration {
-	config := DatchaServerConfiguration{}
-	servercommon.ConfigureServer(&config, DATCHA_SERVER_CFG_FILE_NAME)
-	return &config
+func NewTravelServerConfiguration(cfgReader *servercommon.ConfigurationReader) (*TravelServerConfiguration, error) {
+	config := TravelServerConfiguration{}
+	err := cfgReader.ReadConfiguration(&config, "$")
+	return &config, err
 }
 
 func main() {
-	serverCfg := NewDatchaServerConfiguration()
-	logFile, err := os.OpenFile(serverCfg.LogFileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-	if err == nil {
-		mw := io.MultiWriter(os.Stdout, logFile)
-		log.SetOutput(mw)
-	}
-
-	mainServerRouter := mux.NewRouter()
-	deviceServerRouter := mux.NewRouter()
-
-	broker := notifyserver.NewNotifyServer()
-
-	dbRepo, err := repository.NewSqlRepository(broker)
+	dict := make(map[string]string)
+	dict[SERVER_NAME_KEY] = SERVER_NAME
+	cfgReader, err := servercommon.NewConfigurationReader(SERVER_CFG_FILE_NAME, dict)
 	if err != nil {
-		log.Fatal("can't init repository. Error: ", err)
+		slog.Error(fmt.Sprintf("can't get server configuration. Error: %s", err.Error()))
+		os.Exit(1)
 	}
-
-	authServer, err := authentification.NewAuthServer(dbRepo)
-	if authServer == nil {
-		log.Fatal("can't init authentification server. Error: ", err)
-	}
-
-	deviceServer, err := deviceserver.NewDeviceServer(dbRepo)
+	serverCfg, err := NewTravelServerConfiguration(cfgReader)
 	if err != nil {
-		log.Fatal("can't init device server. Error: ", err)
+		slog.Error(fmt.Sprintf("can't get server configuration. Error: %s", err.Error()))
+		os.Exit(1)
 	}
-
-	channelServer := channelserver.NewChannelServer(authServer, dbRepo)
-	commandServer := commandserver.NewCommandServer(authServer, dbRepo)
-
-	token, err := deviceServer.GenerateToken(52)
-	log.Printf("size=%d token=%s", len(token), token)
-
-	//Authentification handler should registered before other handles
-	authServer.RegisterHandlers(mainServerRouter)
-	projectServer := projectserver.NewProjectServer(authServer, dbRepo)
-	projectServer.RegisterHandlers(mainServerRouter)
-	channelServer.RegisterHandlers(mainServerRouter)
-	commandServer.RegisterHandlers(mainServerRouter)
-	deviceServer.RegisterHandlers(deviceServerRouter)
-	mainServerRouter.Handle("/notify", authServer.JwtAuth(http.HandlerFunc(broker.ServeHTTP))).Methods("GET")
-	//It should be last one
-	pageserver.RegisterHandlers(mainServerRouter)
-	log.Println("Server started")
-	go http.ListenAndServe(":6080", deviceServerRouter)
+	err = serverlogger.InitLogger(cfgReader)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	fmt.Println(serverCfg)
+	mainServerRouter := http.NewServeMux()
+	frontservice, err := frontend.NewFrontEndService(cfgReader)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	frontservice.RegisterHandlers(mainServerRouter)
+	notifier := notifyservice.NewNotifyService()
+	notifier.RegisterHandlers(mainServerRouter)
+	reps, err := repositories.NewRepositories(cfgReader, notifier)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	authsrv, err := authservice.NewAuthService(cfgReader, reps.AuthRep)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	authsrv.RegisterHandlers(mainServerRouter)
+	projsrv := projectservice.NewProjectService(reps.ProjectRep, reps.DeviceRep,
+		reps.ChannelRep, reps.ProjectCardRep, authsrv.InternalService)
+	projsrv.RegisterHandlers(mainServerRouter)
+	deviceSrv, err := deviceservice.NewDeviceService(cfgReader, reps.DeviceRep, reps.ChannelRep, reps.CommandRep)
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+	deviceSrv.RegisterHandlers(mainServerRouter)
+	channelSrv := channelservice.NewChannelService(authsrv.InternalService, reps.ChannelRep)
+	channelSrv.RegisterHandlers(mainServerRouter)
+	commandSrv := commandservice.NewCommandService(authsrv.InternalService, reps.CommandRep, reps.ChannelRep)
+	commandSrv.RegisterHandlers(mainServerRouter)
+	slog.Info("Server started")
+	wrappedRouter := serverlogger.LoggerWrap(mainServerRouter)
 	if serverCfg.ServerMode == SERVER_HTTPS_MODE {
 		certManager := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
@@ -92,14 +101,14 @@ func main() {
 		}
 		server := &http.Server{
 			Addr:    ":https",
-			Handler: mainServerRouter,
+			Handler: wrappedRouter,
 			TLSConfig: &tls.Config{
 				GetCertificate: certManager.GetCertificate,
 			},
 		}
 		go http.ListenAndServe(":http", certManager.HTTPHandler(nil))
-		log.Fatal(server.ListenAndServeTLS("", "")) //Key and cert are coming from Let's Encrypt
+		slog.Error(server.ListenAndServeTLS("", "").Error()) //Key and cert are coming from Let's Encrypt
 	} else {
-		http.ListenAndServe(":7080", mainServerRouter)
+		slog.Error(http.ListenAndServe(":80", wrappedRouter).Error())
 	}
 }

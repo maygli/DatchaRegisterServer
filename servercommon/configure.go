@@ -1,38 +1,49 @@
 package servercommon
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"os"
-	"path"
 
-	"github.com/sethvargo/go-envconfig"
+	"github.com/maygli/dynamictags"
 )
 
-const (
-	CONFIGURE_FOLDER = "config"
-)
+type ConfigurationReader struct {
+	cfgData any
+	dict    map[string]string
+}
 
-func ConfigureServer(server interface{}, fileName string) error {
-	realFileName := path.Join(CONFIGURE_FOLDER, fileName)
-	cfgFile, err := os.Open(realFileName)
-	if err == nil {
-		defer cfgFile.Close()
-		fileData, err := io.ReadAll(cfgFile)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(fileData, server)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
+func NewConfigurationReader(fileName string, cfgDict map[string]string) (*ConfigurationReader, error) {
+	cfg := ConfigurationReader{
+		dict: cfgDict,
 	}
-	err = envconfig.Process(context.Background(), server)
+	if fileName != "" {
+		cfgFile, err := os.Open(fileName)
+		if err == nil {
+			defer cfgFile.Close()
+			fileData, err := io.ReadAll(cfgFile)
+			if err != nil {
+				return nil, err
+			}
+			err = json.Unmarshal(fileData, &cfg.cfgData)
+			if err != nil {
+				return nil, err
+			}
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+	return &cfg, nil
+}
+
+func (cfgReader ConfigurationReader) ReadConfiguration(server interface{}, path string) error {
+	proc, err := dynamictags.NewConfigurationProcessor(cfgReader.cfgData, path)
 	if err != nil {
 		return err
 	}
-	return nil
+	if cfgReader.dict != nil && len(cfgReader.dict) > 0 {
+		proc.SetDictionary(cfgReader.dict)
+	}
+	err = proc.Process(server, nil)
+	return err
 }

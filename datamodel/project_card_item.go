@@ -3,8 +3,8 @@ package datamodel
 import "time"
 
 type ProjectCardItem struct {
-	ID        uint `gorm:"primarykey"`
+	ID        uint
 	CreatedAt time.Time
-	ChannelID uint `gorm:"foreignKey:ProjectCardChannelRefer"`
-	ProjectID uint `gorm:"foreignKey:ProjectCardProjectRefer"`
+	ChannelID uint
+	ProjectID uint
 }

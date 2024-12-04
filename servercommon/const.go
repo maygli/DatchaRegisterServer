@@ -49,3 +49,8 @@ const (
 const (
 	NOTIFIER_KEY string = "notifier"
 )
+
+const (
+	ACCESS_TOKEN_KEY string = "access_token"
+	CLIENT_ID_KEY    string = "client_id"
+)
