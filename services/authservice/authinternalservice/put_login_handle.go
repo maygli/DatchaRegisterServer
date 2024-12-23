@@ -34,12 +34,12 @@ func (server *AuthInternalService) loginPutHandle(w http.ResponseWriter, r *http
 		http.Error(w, servercommon.ERROR_NOT_AUTHORISED, http.StatusUnauthorized)
 		return
 	}
-	err = server.writeAutorizationHeader(w, user.ID)
+	err = server.WriteAutorizationHeader(w, user.ID)
 	if err != nil {
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
 	}
-	server.sendAuthCoockie(w, user.ID)
+	server.SendAuthCoockie(w, user.ID)
 	err = server.writeStatusResponse(w, user.AccStatus)
 	if err != nil {
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)

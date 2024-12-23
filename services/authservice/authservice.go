@@ -2,6 +2,7 @@ package authservice
 
 import (
 	"datcha/repository/authrepository"
+	"datcha/repository/profilerepository"
 	"datcha/servercommon"
 	"datcha/services/authservice/authinternalservice"
 	"datcha/services/authservice/auththirdparty"
@@ -18,19 +19,25 @@ type AuthService struct {
 	InternalService        *authinternalservice.AuthInternalService
 }
 
-func NewAuthService(cfgReader *servercommon.ConfigurationReader, authRepository authrepository.AuthRepositorier) (*AuthService, error) {
+func NewAuthService(cfgReader *servercommon.ConfigurationReader,
+	authRepository authrepository.AuthRepositorier,
+	profileRepository profilerepository.ProfileRepositorier) (*AuthService, error) {
 	service := AuthService{}
 	err := cfgReader.ReadConfiguration(&service, AUTH_CONFIGURATION_PATH)
 	if err != nil {
 		return nil, err
 	}
+	service.InternalService, err = authinternalservice.NewAuthServer(cfgReader, authRepository)
+	if err != nil {
+		return nil, err
+	}
 	if len(service.ThirdPartyServicesList) > 0 {
-		service.ThirdPartyServices, err = auththirdparty.NewAuthThirdPartyService(cfgReader, service.ThirdPartyServicesList)
+		service.ThirdPartyServices, err = auththirdparty.NewAuthThirdPartyService(cfgReader, service.ThirdPartyServicesList,
+			authRepository, profileRepository, service.InternalService)
 		if err != nil {
 			return nil, err
 		}
 	}
-	service.InternalService, err = authinternalservice.NewAuthServer(cfgReader, authRepository)
 	return &service, err
 }
 

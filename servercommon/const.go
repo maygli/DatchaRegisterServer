@@ -35,11 +35,13 @@ const (
 type FileType int
 
 const (
-	BASE_FOLDER            string = "users_data"
-	BASE_FOLDER_ENV        string = "DATCHA_BASE_FOLDER"
-	PROJECTS_FOLDER        string = "projects_data"
-	PROJECT_IMAGE_FILENAME string = "project_preview"
-	MAX_UPLOAD_FILE_SIZE   int64  = 32000000
+	BASE_FOLDER             string = "users_data"
+	BASE_FOLDER_ENV         string = "DATCHA_BASE_FOLDER"
+	PROJECTS_FOLDER         string = "projects_data"
+	PROFILE_FOLDER          string = "profile_data"
+	PROJECT_IMAGE_FILENAME  string = "project_preview"
+	PROFILE_AVATAR_FILENAME string = "avatar"
+	MAX_UPLOAD_FILE_SIZE    int64  = 32000000
 )
 
 const (
@@ -53,4 +55,11 @@ const (
 const (
 	ACCESS_TOKEN_KEY string = "access_token"
 	CLIENT_ID_KEY    string = "client_id"
+)
+
+const (
+	GOOGLE_SERVICE_NAME   = "google"
+	VK_SERVICE_NAME       = "vk"
+	TELEGRAM_SERVICE_NAME = "telegram"
+	YANDEX_SERVICE_NAME   = "yandex"
 )

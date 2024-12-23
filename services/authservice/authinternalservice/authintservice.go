@@ -146,7 +146,7 @@ func (server *AuthInternalService) generateAuthCockie(userId uint) (*http.Cookie
 	return &cookie, nil
 }
 
-func (server *AuthInternalService) sendAuthCoockie(w http.ResponseWriter, userId uint) {
+func (server *AuthInternalService) SendAuthCoockie(w http.ResponseWriter, userId uint) {
 	cookie, err := server.generateAuthCockie(userId)
 	if err != nil {
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
@@ -213,7 +213,7 @@ func (server *AuthInternalService) getUserIdFromToken(tokenStr string, subjectSt
 	return userId, nil
 }
 
-func (server *AuthInternalService) writeAutorizationHeader(w http.ResponseWriter, userId uint) error {
+func (server *AuthInternalService) WriteAutorizationHeader(w http.ResponseWriter, userId uint) error {
 	tokenData, err := server.generateToken(userId, server.RefreshTokenAge,
 		server.RefreshSecretKey, REFRESH_SUBJECT)
 	if err != nil {
@@ -241,4 +241,5 @@ func (server *AuthInternalService) RegisterHandlers(r *http.ServeMux) {
 	r.HandleFunc("GET /confirm/{"+servercommon.CONFIRM_TOKEN_KEY+"}", server.confirmGetHandle)
 	r.HandleFunc("PUT /confirm", server.confirmPutHandle)
 	r.HandleFunc("GET /auth_status", server.statusGetHandle)
+	r.HandleFunc("GET /refresh", server.refreshGetHandle)
 }

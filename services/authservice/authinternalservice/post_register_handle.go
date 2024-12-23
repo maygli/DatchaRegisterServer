@@ -57,12 +57,12 @@ func (server *AuthInternalService) registerPostHandle(w http.ResponseWriter, r *
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	err = server.writeAutorizationHeader(w, user.ID)
+	err = server.WriteAutorizationHeader(w, user.ID)
 	if err != nil {
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
 	}
-	server.sendAuthCoockie(w, user.ID)
+	server.SendAuthCoockie(w, user.ID)
 	if server.shouldSendEmailConfirmation() {
 		err := server.SendConfirmationEmail(user.ID, user.Name, user.Email, userData.Locale)
 		if err != nil {

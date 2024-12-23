@@ -5,6 +5,7 @@ import (
 	"datcha/repository/channelrepository"
 	"datcha/repository/commandrepository"
 	"datcha/repository/devicerepository"
+	"datcha/repository/profilerepository"
 	"datcha/repository/projectcardrepository"
 	"datcha/repository/projectrepository"
 	"datcha/repository/repositorycommon"
@@ -18,6 +19,7 @@ type Repositories struct {
 	ChannelRep     channelrepository.ChannelRepositorier
 	CommandRep     commandrepository.CommandRepositorier
 	ProjectCardRep projectcardrepository.ProjectCardRepositorier
+	ProfileRep     profilerepository.ProfileRepositorier
 }
 
 func NewRepositories(cfgReader *servercommon.ConfigurationReader, notifier servercommon.INotifier) (*Repositories, error) {
@@ -47,6 +49,10 @@ func NewRepositories(cfgReader *servercommon.ConfigurationReader, notifier serve
 		return nil, err
 	}
 	reps.ProjectCardRep, err = projectcardrepository.NewProjectCardRepository(db, notifier)
+	if err != nil {
+		return nil, err
+	}
+	reps.ProfileRep, err = profilerepository.NewProfileRepository(db, notifier)
 	if err != nil {
 		return nil, err
 	}

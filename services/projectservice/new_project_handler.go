@@ -3,72 +3,53 @@ package projectservice
 import (
 	"datcha/datamodel"
 	"datcha/servercommon"
-	"io"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 )
 
 func (server *ProjectService) newProjectsHandle(w http.ResponseWriter, r *http.Request) {
 	projectData, err := server.getProjectData(r)
 	if err != nil {
-		log.Println("can't get project data. Error: " + err.Error())
+		slog.Error("can't get project data. Error: " + err.Error())
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
 	}
 	err = projectData.IsValid()
 	if err != nil {
-		log.Println("parsed project data is invalid. Error: " + err.Error())
+		slog.Error("parsed project data is invalid. Error: " + err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Println("projectData=", projectData)
-	project := server.ToProject(projectData)
+	slog.Debug(fmt.Sprintf("projectData=%v", projectData))
+	project := toDmProject(projectData)
 	user, ok := r.Context().Value(servercommon.USER_CONTEXT_KEY).(*datamodel.User)
 	if !ok {
-		log.Println("context doesn't contains user data")
+		slog.Error("context doesn't contains user data")
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
 	}
 	project.OwnerID = user.ID
 	err = server.projectRepository.AddProject(&project)
 	if err != nil {
-		log.Println("can't save project in the database. Error: " + err.Error())
+		slog.Error("can't save project in the database. Error: " + err.Error())
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
 	}
-	// in your case file would be fileupload
-	file, header, err := r.FormFile("project_image")
-	if err == nil {
-		defer file.Close()
-		projectFolder := servercommon.GetProjectFolder(project.ID)
-		err = servercommon.CreateFolder(projectFolder)
-		if err != nil {
-			// Do nothing in case it is impossible to create project
-			log.Println("can't create project folder ", projectFolder)
-			return
-		}
-		imageFileName := filepath.Join(projectFolder, servercommon.PROJECT_IMAGE_FILENAME+filepath.Ext(header.Filename))
-		log.Printf("File name %s\n", imageFileName)
-		// Copy the file data to my buffer
-		f, err := os.OpenFile(imageFileName, os.O_WRONLY|os.O_CREATE, 0666)
-		if err != nil {
-			log.Println("can't open file to save iamge. FileName=", imageFileName)
-			return
-		}
-		defer f.Close()
-		_, err = io.Copy(f, file)
-		if err != nil {
-			log.Println("can't save iamge. FileName=", imageFileName)
-			return
-		}
-		project.ImagePath = imageFileName
-		err = server.projectRepository.UpdateProject(&project)
-		if err != nil {
-			log.Println("can't update project. Error: ", err.Error())
-			http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
-			return
-		}
+	// save image
+	projectFolder := servercommon.GetProjectFolder(project.ID)
+	imageFileName := servercommon.PROJECT_IMAGE_FILENAME
+	filePath, err := servercommon.SaveFormFile(r, "project_image", projectFolder, imageFileName)
+	if err != nil {
+		slog.Error("can't save project image. Error: " + err.Error())
+		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
+		return
+	}
+	project.ImagePath = filePath
+	err = server.projectRepository.UpdateProject(&project)
+	if err != nil {
+		slog.Error("can't update project. Error: " + err.Error())
+		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
+		return
 	}
 }

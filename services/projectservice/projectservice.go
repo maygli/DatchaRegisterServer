@@ -71,13 +71,6 @@ func (service *ProjectService) getProjectData(r *http.Request) (ProjectData, err
 	return projectData, err
 }
 
-func (service *ProjectService) ToProject(projectData ProjectData) datamodel.Project {
-	project := datamodel.Project{
-		Name: projectData.Name,
-	}
-	return project
-}
-
 func (service *ProjectService) fromCardItem(cardItem *datamodel.ProjectCardItem) (ChannelLastValue, error) {
 	val := ChannelLastValue{
 		ChannelId: cardItem.ChannelID,
@@ -123,6 +116,7 @@ func (service *ProjectService) FromProject(project *datamodel.Project) ProjectDa
 
 func (service *ProjectService) RegisterHandlers(r *http.ServeMux) {
 	r.Handle("GET /projects", service.authService.JwtAuth(http.HandlerFunc(service.getProjectsHandle)))
+	r.Handle("PUT /project", service.authService.JwtAuth(http.HandlerFunc(service.putProjectsHandle)))
 	r.Handle("POST /projects", service.authService.JwtAuth(http.HandlerFunc(service.newProjectsHandle)))
 	r.Handle("DELETE /project/{"+servercommon.PROJECT_ID_KEY+"}", service.authService.JwtAuth(http.HandlerFunc(service.deleteProjectsHandle)))
 }

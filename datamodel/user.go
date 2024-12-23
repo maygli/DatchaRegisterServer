@@ -1,6 +1,7 @@
 package datamodel
 
 import (
+	"datcha/servercommon"
 	"net/mail"
 	"regexp"
 )
@@ -15,12 +16,15 @@ const (
 )
 
 type User struct {
-	ID        uint
-	Name      string
-	Email     string
-	Password  string
-	AccStatus AccountStatus
-	TestField string
+	ID          uint
+	Name        string
+	Email       string
+	Password    string
+	AccStatus   AccountStatus
+	GoogleId    string
+	VkId        string
+	TelegrammId string
+	YandexId    string
 }
 
 func (status AccountStatus) isValid() bool {
@@ -45,4 +49,31 @@ func (user User) isValid() bool {
 		return false
 	}
 	return user.AccStatus.isValid()
+}
+
+func (user *User) SetServiceUserId(service string, serviceUserId string) {
+	switch service {
+	case servercommon.GOOGLE_SERVICE_NAME:
+		user.GoogleId = serviceUserId
+	case servercommon.VK_SERVICE_NAME:
+		user.VkId = serviceUserId
+	case servercommon.TELEGRAM_SERVICE_NAME:
+		user.TelegrammId = serviceUserId
+	case servercommon.YANDEX_SERVICE_NAME:
+		user.YandexId = serviceUserId
+	}
+}
+
+func (user User) HasServiceId(service string) bool {
+	switch service {
+	case servercommon.GOOGLE_SERVICE_NAME:
+		return user.GoogleId != ""
+	case servercommon.VK_SERVICE_NAME:
+		return user.VkId != ""
+	case servercommon.TELEGRAM_SERVICE_NAME:
+		return user.TelegrammId != ""
+	case servercommon.YANDEX_SERVICE_NAME:
+		return user.YandexId != ""
+	}
+	return false
 }

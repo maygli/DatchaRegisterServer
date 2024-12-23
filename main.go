@@ -11,6 +11,7 @@ import (
 	"datcha/services/deviceservice"
 	"datcha/services/frontend"
 	"datcha/services/notifyservice"
+	"datcha/services/profileservice"
 	"datcha/services/projectservice"
 	"fmt"
 	"log/slog"
@@ -72,12 +73,14 @@ func main() {
 		slog.Error(err.Error())
 		return
 	}
-	authsrv, err := authservice.NewAuthService(cfgReader, reps.AuthRep)
+	authsrv, err := authservice.NewAuthService(cfgReader, reps.AuthRep, reps.ProfileRep)
 	if err != nil {
 		slog.Error(err.Error())
 		return
 	}
 	authsrv.RegisterHandlers(mainServerRouter)
+	profService := profileservice.NewProfileService(reps.AuthRep, reps.ProfileRep, authsrv.InternalService)
+	profService.RegisterHandlers(mainServerRouter)
 	projsrv := projectservice.NewProjectService(reps.ProjectRep, reps.DeviceRep,
 		reps.ChannelRep, reps.ProjectCardRep, authsrv.InternalService)
 	projsrv.RegisterHandlers(mainServerRouter)

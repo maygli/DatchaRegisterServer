@@ -1,4 +1,4 @@
-package authcommon
+package auththirdparty
 
 import (
 	"context"
@@ -16,7 +16,7 @@ const (
 	STATE_LENGTH    = 24
 	VERIFIER_LENGHT = 24
 	// Life time of state cookie in seconds
-	COOKIE_STATE_LIFE_TIME = 30
+	COOKIE_STATE_LIFE_TIME = 600
 	STATE_COOKIE_NAME      = "oauthstate"
 	VERIFIER_COOKIE_NAME   = "verifier"
 	STATE_NAME             = "state"
@@ -53,6 +53,13 @@ func GenerateVerifierCockie(verifier string) *http.Cookie {
 	return &cookie
 }
 
+func ProcessLogin(w http.ResponseWriter, r *http.Request, config oauth2.Config) {
+	state := GenerateRandonString(STATE_LENGTH)
+	url := config.AuthCodeURL(state)
+	http.SetCookie(w, GenerateStateCockie(state))
+	http.Redirect(w, r, url, http.StatusSeeOther)
+}
+
 func VerifyCookieValue(r *http.Request, coockieName string, expValue string) error {
 	cookieValue, err := r.Cookie(coockieName)
 	if err != nil {
@@ -62,13 +69,6 @@ func VerifyCookieValue(r *http.Request, coockieName string, expValue string) err
 		return errors.New("invalid cookie value")
 	}
 	return nil
-}
-
-func ProcessLogin(w http.ResponseWriter, r *http.Request, config oauth2.Config) {
-	state := GenerateRandonString(STATE_LENGTH)
-	url := config.AuthCodeURL(state)
-	http.SetCookie(w, GenerateStateCockie(state))
-	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 func GetToken(r *http.Request, config oauth2.Config) (*oauth2.Token, error) {

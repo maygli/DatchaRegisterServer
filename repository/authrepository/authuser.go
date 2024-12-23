@@ -12,10 +12,14 @@ import (
 
 type AuthUser struct {
 	gorm.Model
-	Name      string `gorm:"unique;not null;type:varchar(100);default:null"`
-	Email     string `gorm:"unique;not null;type:varchar(100);default:null"`
-	Password  string `gorm:"not null;type:varchar(100);default:null"`
-	AccStatus string `gorm:"not null;type:varchar(100);default:need_confirm"`
+	Name       string `gorm:"unique;not null;type:varchar(100);default:null"`
+	Email      string `gorm:"unique;type:varchar(100);default:null"`
+	Password   string `gorm:"type:varchar(100);default:null"`
+	AccStatus  string `gorm:"not null;type:varchar(100);default:need_confirm"`
+	GoogleId   string `gorm:"unique;type:varchar(100);default:null"`
+	VkId       string `gorm:"unique;type:varchar(100);default:null"`
+	TelegramId string `gorm:"unique;type:varchar(100);default:null"`
+	YandexId   string `gorm:"unique;type:varchar(100);default:null"`
 }
 
 func (user AuthUser) isValid() bool {

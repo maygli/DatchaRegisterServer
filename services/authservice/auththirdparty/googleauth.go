@@ -3,7 +3,6 @@ package auththirdparty
 import (
 	"context"
 	"datcha/servercommon"
-	"datcha/services/authservice/authcommon"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,13 +14,11 @@ import (
 )
 
 const (
-	AUTH_GOOGLE_CONFIGURATION_PATH = "$.auth.google"
-	AUTH_GOOGLE_CALLBACK_ENDPOINT  = "/auth/google/callback"
-	AUTH_GOOGLE_EMAIL_SCOPE        = "https://www.googleapis.com/auth/userinfo.email"
-	AUTH_GOOGLE_PROFILE_SCOPE      = "https://www.googleapis.com/auth/userinfo.profile"
-	GOOGLE_GET_USER_METHOD         = http.MethodGet
-	GOOGLE_USER_PROFILE_DATA_URL   = "https://www.googleapis.com/oauth2/v2/userinfo"
-	GOOGLE_OAUTH_API_URL           = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
+	AUTH_GOOGLE_EMAIL_SCOPE      = "https://www.googleapis.com/auth/userinfo.email"
+	AUTH_GOOGLE_PROFILE_SCOPE    = "https://www.googleapis.com/auth/userinfo.profile"
+	GOOGLE_GET_USER_METHOD       = http.MethodGet
+	GOOGLE_USER_PROFILE_DATA_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+	GOOGLE_OAUTH_API_URL         = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
 )
 
 type GoogleUser struct {
@@ -32,32 +29,44 @@ type GoogleUser struct {
 	Avatar    string `json:"picture"`
 }
 
-type GoogleAuthService struct {
+type GoogleAuthConfigure struct {
 	GoogleClientId     string `json:"google_client_id" env:"${SERVER_NAME}_AUTH_GOOGLE_CLIENT_ID"`
 	GoogleClientSecret string `json:"google_client_secret" env:"${SERVER_NAME}_AUTH_GOOGLE_CLIENT_SECRET"`
 	ServerAddress      string `json:"server_address" env:"${SERVER_NAME}_SERVER_ADDRESS"`
-	googleLoginConfig  oauth2.Config
+	LoginEndPoint      string `json:"google_login_endpoint" env:"${SERVER_NAME}_GOOGLE_LOGIN_ENDPOINT" default:"/auth/google/login"`
+	CallbackEndPoint   string `json:"google_callback_endpoint" env:"${SERVER_NAME}_GOOGLE_CALLBACK_ENDPOINT" default:"/auth/google/callback"`
 }
 
-func NewGoogleAuthService(cfgReader *servercommon.ConfigurationReader) (*GoogleAuthService, error) {
-	service := GoogleAuthService{}
-	err := cfgReader.ReadConfiguration(&service, AUTH_GOOGLE_CONFIGURATION_PATH)
-	if err != nil {
-		return &service, err
+type GoogleAuthService struct {
+	AuthThirdPartyBase
+	googleLoginConfig oauth2.Config
+}
+
+func NewGoogleAuthService(config *GoogleAuthConfigure, processor CompleteAuthProcessor) *GoogleAuthService {
+	service := GoogleAuthService{
+		AuthThirdPartyBase: AuthThirdPartyBase{
+			LoginEndPoint:    config.LoginEndPoint,
+			CallbackEndPoint: config.CallbackEndPoint,
+			AuthProcessor:    processor,
+		},
 	}
 	service.googleLoginConfig = oauth2.Config{
-		RedirectURL:  service.ServerAddress + AUTH_GOOGLE_CALLBACK_ENDPOINT,
-		ClientID:     service.GoogleClientId,
-		ClientSecret: service.GoogleClientSecret,
+		RedirectURL:  config.ServerAddress + service.GetCallbackEndpoint(service.GetServiceName()),
+		ClientID:     config.GoogleClientId,
+		ClientSecret: config.GoogleClientSecret,
 		Scopes: []string{AUTH_GOOGLE_EMAIL_SCOPE,
 			AUTH_GOOGLE_PROFILE_SCOPE},
 		Endpoint: google.Endpoint,
 	}
-	return &service, err
+	return &service
+}
+
+func (service GoogleAuthService) GetServiceName() string {
+	return servercommon.GOOGLE_SERVICE_NAME
 }
 
 func (service GoogleAuthService) googleAuthLoginHandle(w http.ResponseWriter, r *http.Request) {
-	authcommon.ProcessLogin(w, r, service.googleLoginConfig)
+	ProcessLogin(w, r, service.googleLoginConfig)
 }
 
 func (service GoogleAuthService) getUserDataFromGoogle(token *oauth2.Token) (GoogleUser, error) {
@@ -77,23 +86,40 @@ func (service GoogleAuthService) getUserDataFromGoogle(token *oauth2.Token) (Goo
 	return user, err
 }
 
+func googleToAuthUser(user GoogleUser) AuthThirdPartyUser {
+	resUser := AuthThirdPartyUser{
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Avatar:    user.Avatar,
+		UserId:    user.UserId,
+		Service:   servercommon.GOOGLE_SERVICE_NAME,
+	}
+	return resUser
+}
+
 func (service GoogleAuthService) googleAuthCallbackHandle(w http.ResponseWriter, r *http.Request) {
-	token, err := authcommon.GetToken(r, service.googleLoginConfig)
+	token, err := GetToken(r, service.googleLoginConfig)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error get token. Error: %s", err.Error()))
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		service.ProcessError(err, w, r)
 		return
 	}
 	user, err := service.getUserDataFromGoogle(token)
 	if err != nil {
-		slog.Error("Error get token")
+		slog.Error("Error get token. Error: " + err.Error())
+		service.ProcessError(err, w, r)
 		return
 	}
 	slog.Info(fmt.Sprintf("user=%+v", user))
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	gUser := googleToAuthUser(user)
+	err = service.ProcessSuccess(gUser, w, r)
+	if err != nil {
+		slog.Error(err.Error())
+	}
 }
 
 func (service GoogleAuthService) RegisterHandlers(mux *http.ServeMux) {
-	mux.HandleFunc("GET /auth/google/login", service.googleAuthLoginHandle)
-	mux.HandleFunc("GET "+AUTH_GOOGLE_CALLBACK_ENDPOINT, service.googleAuthCallbackHandle)
+	mux.HandleFunc("GET "+service.GetLoginEndpoint(service.GetServiceName()), service.googleAuthLoginHandle)
+	mux.HandleFunc("GET "+service.GetCallbackEndpoint(service.GetServiceName()), service.googleAuthCallbackHandle)
 }

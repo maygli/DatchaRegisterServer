@@ -67,6 +67,17 @@ func (repo *AuthRepository) FindUserByNameEmail(name string) (*datamodel.User, e
 	return getDMByResult(result, &user)
 }
 
+func (repo *AuthRepository) getServiceIdField(serviceName string) string {
+	return serviceName + "_id"
+}
+
+func (repo *AuthRepository) FindUserByServiceId(userId string, serviceName string) (*datamodel.User, error) {
+	user := AuthUser{}
+	field := repo.getServiceIdField(serviceName)
+	result := repo.database.Where(field+"=?", userId).First(&user)
+	return getDMByResult(result, &user)
+}
+
 func (repo *AuthRepository) DeleteUser(id uint) error {
 	result := repo.database.Delete(&AuthUser{}, id)
 	return result.Error
@@ -74,5 +85,16 @@ func (repo *AuthRepository) DeleteUser(id uint) error {
 
 func (repo *AuthRepository) UpdateAccountStatus(id uint, status datamodel.AccountStatus) error {
 	result := repo.database.Model(&AuthUser{}).Set(servercommon.NOTIFIER_KEY, repo.notifier).Where("ID=?", id).Update("acc_status", getStatus(status))
+	return result.Error
+}
+
+func (repo *AuthRepository) UpdateServiceUserId(id uint, serviceName string, serviceUserId string) error {
+	field := repo.getServiceIdField(serviceName)
+	result := repo.database.Model(&AuthUser{}).Set(servercommon.NOTIFIER_KEY, repo.notifier).Where("ID=?", id).Update(field, serviceUserId)
+	return result.Error
+}
+
+func (repo *AuthRepository) UpdateEmail(id uint, email string) error {
+	result := repo.database.Model(&AuthUser{}).Set(servercommon.NOTIFIER_KEY, repo.notifier).Where("ID=?", id).Update("email", email)
 	return result.Error
 }

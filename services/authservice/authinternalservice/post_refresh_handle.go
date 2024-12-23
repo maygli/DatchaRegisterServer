@@ -26,8 +26,8 @@ func (server *AuthInternalService) refreshPostHandle(w http.ResponseWriter, r *h
 		http.Error(w, servercommon.ERROR_NOT_AUTHORISED, http.StatusUnauthorized)
 		return
 	}
-	server.sendAuthCoockie(w, userId)
-	err = server.writeAutorizationHeader(w, userId)
+	server.SendAuthCoockie(w, userId)
+	err = server.WriteAutorizationHeader(w, userId)
 	if err != nil {
 		http.Error(w, servercommon.ERROR_INTERNAL, http.StatusInternalServerError)
 		return
